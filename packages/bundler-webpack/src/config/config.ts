@@ -57,6 +57,8 @@ export interface IOpts {
   };
   pkg?: Record<string, any>;
   disableCopy?: boolean;
+  host?: string;
+  port?: number;
 }
 
 export async function getConfig(opts: IOpts): Promise<Configuration> {
@@ -65,7 +67,7 @@ export async function getConfig(opts: IOpts): Promise<Configuration> {
   const config = new Config();
   userConfig.targets ||= DEFAULT_BROWSER_TARGETS;
   // normalize inline limit
-  userConfig.inlineLimit = parseInt(userConfig.inlineLimit || '10000', 10);
+  userConfig.inlineLimit = parseInt(userConfig.inlineLimit ?? '10000', 10);
   const useHash = !!(opts.hash || (userConfig.hash && !isDev));
   const applyOpts = {
     name: opts.name,
@@ -84,6 +86,8 @@ export async function getConfig(opts: IOpts): Promise<Configuration> {
     useHash,
     staticPathPrefix:
       opts.staticPathPrefix !== undefined ? opts.staticPathPrefix : 'static/',
+    port: opts.port,
+    host: opts.host,
   };
 
   // name

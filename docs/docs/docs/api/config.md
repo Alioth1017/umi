@@ -229,7 +229,7 @@ export async function clientLoader() {
 - 类型：`{ jsStrategy: 'bigVendors' | 'depPerChunk' | 'granularChunks'; jsStrategyOptions: {} }`
 - 默认值：`null`
 
-提供 code splitting 的策略方案。
+用于配置 code splitting 的策略方案，Umi 默认以路由为分界拆分 chunk，实现路由维度的 chunk 按需加载，如果在此之上希望继续提取公共 chunk，可以选择合适的策略进行配置，差异如下。
 
 bigVendors 是大 vendors 方案，会将 async chunk 里的 node_modules 下的文件打包到一起，可以避免重复。同时缺点是，1）单文件的尺寸过大，2）毫无缓存效率可言。
 
@@ -690,6 +690,24 @@ favicons: [
 ]
 ```
 
+## forget
+
+- 类型：`{ ReactCompilerConfig: object }`
+- 默认值：`null`
+
+是否开启 React Compiler（React Forget）功能。参考 https://react.dev/learn/react-compiler 。
+
+```ts
+forget: {
+  ReactCompilerConfig: {},
+},
+```
+
+注意：
+
+1、forget 和 mfsu、mako 暂时不兼容，如果开启了 forget，同时 mfsu、mako 有打开时会抛错。
+2、forget 需要 react 19，使用时，请手动安装 react@rc 和 react-dom@rc 到项目依赖。
+
 ## forkTSChecker
 
 - 类型：`object`
@@ -944,6 +962,14 @@ legacy: {}
 ```js
 links: [{ href: '/foo.css', rel: 'preload' }],
 ```
+
+## mako <Badge>4.3.2+</Badge>
+
+- 类型: `{ plugins?: Array<{ load?: ((...args: any[]) => unknown) | undefined; generateEnd?: ((...args: any[]) => unknown) | undefined; }> | undefined; px2rem?: { root?: number | undefined; propBlackList?: Array<string> | undefined; propWhiteList?: Array<string> | undefined; selectorBlackList?: Array<string> | undefined; selectorWhiteList?: Array<string> | undefined; selectorDoubleList?: Array<string> | undefined; } | undefined; experimental?: { webpackSyntaxValidate?: Array<string> | undefined; } | undefined; flexBugs?: boolean | undefined; moduleIdStrategy?: string | undefined; optimization?: { skipModules?: boolean | undefined; } | undefined; }`
+- 默认值: `{}`
+
+使用 [mako](https://makojs.dev/) 用于编译以显著提高构建速度。
+通过配置以启用这个能力，配置将传递给mako。这里只提供了一些常用的配置，更多的配置可以在 `mako.config.json` 文件中设置。有关更多信息，请参阅[mako-config文档](https://makojs.dev/docs/config)。
 
 ## manifest
 
@@ -1283,6 +1309,13 @@ proxy: {
 'index': React.lazy(() => Promise.resolve(require('../../pages/index.tsx'))),
 ```
 
+## routePrefetch
+
+- 类型：`{ defaultPrefetch: 'none' | 'intent' | 'render' | 'viewport', defaultPrefetchTimeout: number } | false`
+- 默认值：`false`
+
+启用路由预加载功能。
+
 ## run
 
 - 类型：`{ globals: string[] }`
@@ -1514,4 +1547,3 @@ vite: {
 - 默认值：`false`
 
 开启后会在 dev 模式下额外输出一份文件到 dist 目录，通常用于 chrome 插件、electron 应用、sketch 插件等开发场景。
-

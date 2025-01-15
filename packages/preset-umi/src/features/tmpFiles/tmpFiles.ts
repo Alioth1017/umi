@@ -1,12 +1,12 @@
 import { importLazy, lodash, winPath } from '@umijs/utils';
 import { existsSync, readdirSync } from 'fs';
-import { basename, dirname, join } from 'path';
+import { basename, dirname, join, relative } from 'path';
 import { RUNTIME_TYPE_FILE_NAME } from 'umi';
+import { getMarkupArgs } from '../../commands/dev/getMarkupArgs';
 import { TEMPLATES_DIR } from '../../constants';
 import { IApi } from '../../types';
 import { getModuleExports } from './getModuleExports';
 import { importsToStr } from './importsToStr';
-
 const routesApi: typeof import('./routes') = importLazy(
   require.resolve('./routes'),
 );
@@ -22,6 +22,8 @@ export default (api: IApi) => {
       },
     },
   });
+
+  const TSCONFIG_FILE_NAME = 'tsconfig.json';
 
   api.onGenerateFiles(async (opts) => {
     const rendererPath = winPath(
@@ -46,6 +48,12 @@ export default (api: IApi) => {
     const baseUrl = api.appData.hasSrcDir ? '../../' : '../';
     const isTs5 = api.appData.typescript.tsVersion?.startsWith('5');
     const isTslibInstalled = !!api.appData.typescript.tslibVersion;
+
+    // https://github.com/umijs/umi/issues/12545
+    const tsconfigFilePath = join(api.paths.absTmpPath, TSCONFIG_FILE_NAME);
+    const relativeUmiDirPath = winPath(
+      relative(dirname(tsconfigFilePath), umiDir),
+    );
 
     // x 1、basic config
     // x 2、alias
@@ -81,7 +89,7 @@ export default (api: IApi) => {
         paths: {
           '@/*': [`${srcPrefix}*`],
           '@@/*': [`${umiTempDir}/*`],
-          [`${api.appData.umi.importSource}`]: [umiDir],
+          [`${api.appData.umi.importSource}`]: [relativeUmiDirPath],
           [`${api.appData.umi.importSource}/typings`]: [
             `${umiTempDir}/typings`,
           ],
@@ -94,6 +102,7 @@ export default (api: IApi) => {
       },
       include: [
         `${baseUrl}.${frameworkName}rc.ts`,
+        `${baseUrl}.${frameworkName}rc.*.ts`,
         `${baseUrl}**/*.d.ts`,
         `${baseUrl}**/*.ts`,
         `${baseUrl}**/*.tsx`,
@@ -109,7 +118,7 @@ export default (api: IApi) => {
 
     api.writeTmpFile({
       noPluginDir: true,
-      path: 'tsconfig.json',
+      path: TSCONFIG_FILE_NAME,
       content: JSON.stringify(umiTsConfig, null, 2),
     });
 
@@ -260,7 +269,44 @@ declare module '*.txt' {
 }
 `.trimEnd(),
     });
+    const entryCode = (
+      await api.applyPlugins({
+        key: 'addEntryCode',
+        initialValue: [],
+      })
+    ).join('\n');
+    const entryCodeAhead = (
+      await api.applyPlugins({
+        key: 'addEntryCodeAhead',
+        initialValue: [],
+      })
+    ).join('\n');
+    const importsAhead = importsToStr(
+      await api.applyPlugins({
+        key: 'addEntryImportsAhead',
+        initialValue: [
+          api.appData.globalCSS.length && {
+            source: api.appData.globalCSS[0],
+          },
+          api.appData.globalJS.length && {
+            source: api.appData.globalJS[0],
+          },
+        ].filter(Boolean),
+      }),
+    ).join('\n');
+    const imports = importsToStr(
+      await api.applyPlugins({
+        key: 'addEntryImports',
+        initialValue: [],
+      }),
+    ).join('\n');
 
+    const ssrConfig = api.config.ssr;
+    const __INTERNAL_DO_NOT_USE_OR_YOU_WILL_BE_FIRED = api.config.ssr
+      ?.__INTERNAL_DO_NOT_USE_OR_YOU_WILL_BE_FIRED ?? {
+      pureApp: false,
+      pureHtml: false,
+    };
     // umi.ts
     api.writeTmpFile({
       noPluginDir: true,
@@ -271,46 +317,23 @@ declare module '*.txt' {
         rendererPath,
         publicPath: api.config.publicPath,
         runtimePublicPath: api.config.runtimePublicPath ? 'true' : 'false',
-        entryCode: (
-          await api.applyPlugins({
-            key: 'addEntryCode',
-            initialValue: [],
-          })
-        ).join('\n'),
-        entryCodeAhead: (
-          await api.applyPlugins({
-            key: 'addEntryCodeAhead',
-            initialValue: [],
-          })
-        ).join('\n'),
+        entryCode,
+        entryCodeAhead,
         polyfillImports: importsToStr(
           await api.applyPlugins({
             key: 'addPolyfillImports',
             initialValue: [],
           }),
         ).join('\n'),
-        importsAhead: importsToStr(
-          await api.applyPlugins({
-            key: 'addEntryImportsAhead',
-            initialValue: [
-              api.appData.globalCSS.length && {
-                source: api.appData.globalCSS[0],
-              },
-              api.appData.globalJS.length && {
-                source: api.appData.globalJS[0],
-              },
-            ].filter(Boolean),
-          }),
-        ).join('\n'),
-        imports: importsToStr(
-          await api.applyPlugins({
-            key: 'addEntryImports',
-            initialValue: [],
-          }),
-        ).join('\n'),
+        importsAhead,
+        imports,
         basename: api.config.base,
         historyType: api.config.history.type,
-        hydrate: !!api.config.ssr,
+        __INTERNAL_DO_NOT_USE_OR_YOU_WILL_BE_FIRED: JSON.stringify(
+          __INTERNAL_DO_NOT_USE_OR_YOU_WILL_BE_FIRED,
+        ),
+        hydrate: !!ssrConfig,
+        useStream: ssrConfig?.useStream ?? true,
         reactRouter5Compat: !!api.config.reactRouter5Compat,
         loadingComponent: api.appData.globalLoading,
       },
@@ -446,6 +469,9 @@ if (process.env.NODE_ENV === 'development') {
     const validKeys = await api.applyPlugins({
       key: 'addRuntimePluginKey',
       initialValue: [
+        // why add default?
+        // ref: https://github.com/umijs/mako/issues/1026
+        ...(process.env.OKAM ? ['default'] : []),
         'patchRoutes',
         'patchClientRoutes',
         'modifyContextOpts',
@@ -482,9 +508,12 @@ if (process.env.NODE_ENV === 'development') {
     });
 
     // umi.server.ts
-    if (api.config.ssr) {
+    if (ssrConfig) {
       const umiPluginPath = winPath(join(umiDir, 'client/client/plugin.js'));
       const umiServerPath = winPath(require.resolve('@umijs/server/dist/ssr'));
+
+      const mountElementId = api.config.mountElementId;
+
       const routesWithServerLoader = Object.keys(routes).reduce<
         { id: string; path: string }[]
       >((memo, id) => {
@@ -496,6 +525,8 @@ if (process.env.NODE_ENV === 'development') {
         }
         return memo;
       }, []);
+      const { headScripts, scripts, styles, title, favicons, links, metas } =
+        await getMarkupArgs({ api });
       api.writeTmpFile({
         noPluginDir: true,
         path: 'umi.server.ts',
@@ -505,7 +536,13 @@ if (process.env.NODE_ENV === 'development') {
             /"component": "await import\((.*)\)"/g,
             '"component": await import("$1")',
           ),
+          version: api.appData.umi.version,
+          reactVersion: api.appData.react.version,
+          entryCode,
+          entryCodeAhead,
           routesWithServerLoader,
+          importsAhead,
+          imports,
           umiPluginPath,
           serverRendererPath,
           umiServerPath,
@@ -514,6 +551,21 @@ if (process.env.NODE_ENV === 'development') {
             join(api.paths.absOutputPath, 'build-manifest.json'),
           ),
           env: JSON.stringify(api.env),
+          htmlPageOpts: JSON.stringify({
+            headScripts,
+            styles,
+            title,
+            favicons,
+            links,
+            metas,
+            scripts: scripts || [],
+          }),
+          __INTERNAL_DO_NOT_USE_OR_YOU_WILL_BE_FIRED: JSON.stringify(
+            __INTERNAL_DO_NOT_USE_OR_YOU_WILL_BE_FIRED,
+          ),
+          mountElementId,
+          basename: api.config.base,
+          useStream: ssrConfig?.useStream ?? true,
         },
       });
     }
@@ -601,7 +653,9 @@ if (process.env.NODE_ENV === 'development') {
           })
         ).join(', ')} } from '${rendererPath}';`,
       );
-      exports.push(`export type { History } from '${rendererPath}'`);
+      exports.push(
+        `export type { History, ClientLoader } from '${rendererPath}'`,
+      );
       // umi/client/client/plugin
       exports.push('// umi/client/client/plugin');
       const umiPluginPath = winPath(join(umiDir, 'client/client/plugin.js'));

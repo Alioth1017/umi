@@ -121,7 +121,17 @@ export default {
 }
 ```
 
-访问 `/` 会跳转到 `/list`，并由 `src/pages/list` 文件进行渲染。
+访问 `/` 会跳转到 `/list` 。
+
+重定向时，默认不会携带原 url 的查询参数，如需保持原参数，添加 `keepQuery` 选项即可：
+
+```ts
+  routes: [
+    { path: '/', redirect: '/list', keepQuery: true },
+
+    // 注：若你需在跳转时处理参数，可以自行实现一个跳转组件
+  ]
+```
 
 ### wrappers
 
@@ -190,6 +200,29 @@ const TheOldPage = ()=>{
 
 export default withAuth(TheOldPage)
 ```
+
+### layout
+
+* Type: `boolean`
+
+通过配置 `layout: false` 可以单独关闭某一个路由的全局布局：
+
+```js
+// .umirc.ts
+
+export default {
+  routes: [
+    // 取消 login 页面的全局布局，从而自行实现整个页面
+    { path: '/login', component: '@/pages/Login', layout: false },
+  ],
+}
+```
+
+注：
+
+1. 全局布局可能来自于 `layouts/index.tsx` 约定，或插件添加的 layout（如 `@umijs/max` 自带的 layout 插件将自动添加菜单布局），当配置 `layout: false` 时，将取消所有 layout ，此时组件内容占据整个页面，多用于登录页等场景。
+
+2. `layout: false` 仅对一级路由生效，更多例子详见 [全局 layout](#全局-layout) 。
 
 ## 约定式路由
 
@@ -395,11 +428,11 @@ export default function Page() {
 
 ## 路由组件参数
 
-Umi 4 使用 [react-router@6](https://reactrouter.com/docs/en/v6/api) 作为路由组件，路由参数的获取使其 hooks。
+Umi 4 使用 [react-router@6](https://reactrouter.com/en/main) 作为路由组件，路由参数的获取使其 hooks。
 
 ### match 信息
 
-[useMatch](https://reactrouter.com/docs/en/v6/api#usematch)
+[useMatch](https://reactrouter.com/en/main/hooks/use-match)
 
 ```jsx
 const match = useMatch('/comp/:id')
@@ -420,7 +453,7 @@ const match = useMatch('/comp/:id')
 
 ### location 信息
 
-[useLocation](https://reactrouter.com/docs/en/v6/api#uselocation)
+[useLocation](https://reactrouter.com/en/main/hooks/use-location)
 
 ```jsx
 const location  = useLocation();
@@ -449,7 +482,7 @@ const location  = useLocation();
 
 ### 路由动态参数
 
-[useParams](https://reactrouter.com/docs/en/v6/api#useparams)
+[useParams](https://reactrouter.com/en/main/hooks/use-params)
 
 ```jsx
 // 路由配置 /comp/:id
@@ -464,7 +497,7 @@ const params  = useParams();
 
 ### query 信息
 
-[useSearchParams](https://reactrouter.com/docs/en/v6/api#usesearchparams)
+[useSearchParams](https://reactrouter.com/en/main/hooks/use-search-params)
 
 ```jsx
 // 当前 location /comp?a=b;
