@@ -176,7 +176,7 @@ export default {
 
 开启后，可通过 `Option+Click/Alt+Click` 点击组件跳转至编辑器源码位置，`Option+Right-click/Alt+Right-click` 可以打开上下文，查看父组件。
 
-关于参数。`editor` 为编辑器名称，默认为 'vscode'，支持 `vscode` & `vscode-insiders`。
+关于参数。`editor` 为编辑器名称，默认为 'vscode'，支持 `vscode`, `vscode-insiders` 和 `cursor`。
 
 配置 clickToComponent 的行为，详见 [click-to-component](https://github.com/ericclemmons/click-to-component)。
 
@@ -690,23 +690,30 @@ favicons: [
 ]
 ```
 
-## forget
+## reactCompiler
 
-- 类型：`{ ReactCompilerConfig: object }`
+- 类型：`boolean | object`
 - 默认值：`null`
 
-是否开启 React Compiler（React Forget）功能。参考 https://react.dev/learn/react-compiler 。
+是否开启 React Compiler 功能。参考 https://react.dev/learn/react-compiler 。
 
 ```ts
-forget: {
-  ReactCompilerConfig: {},
+reactCompiler: true,
+```
+
+React Compiler 的配置项会直接透传给 `babel-plugin-react-compiler`：
+
+```ts
+reactCompiler: {
+  target: '19',
 },
 ```
 
 注意：
 
-1、forget 和 mfsu、mako 暂时不兼容，如果开启了 forget，同时 mfsu、mako 有打开时会抛错。
-2、forget 需要 react 19，使用时，请手动安装 react@rc 和 react-dom@rc 到项目依赖。
+- reactCompiler 和 mfsu、mako 暂时不兼容，如果同时打开会抛错；utoopack 会通过 babel-loader 传递 React Compiler 插件配置。
+- reactCompiler 默认面向 React 19，使用时请安装 react@19 和 react-dom@19 到项目依赖。如果需要配合 React 17 或 18 使用，请配置对应的 `target` 并安装 react-compiler-runtime。
+- 旧配置项 `forget` 仍可兼容使用，但已废弃，请迁移到 `reactCompiler`。
 
 ## forkTSChecker
 
@@ -1551,6 +1558,17 @@ transformRuntime: {
 ```bash
 $ npm install @babel/runtime --save-dev
 ```
+
+## utoopack <Badge>4.6.0+</Badge>
+
+- 类型: `Object`
+- 默认值: `{}`
+
+使用 Rust Bundler [utoopack](http://github.com/utooland/utoo) 用于提升构建性能。
+
+通过配置来启用这个能力，目前 utoopack 对框架中大部分功能已经支持。
+
+使用 utoopack 构建 qiankun 子应用时，如果主应用使用 qiankun 2，qiankun 版本需为 `2.10.17-beta.0` 或更高。更早的版本无法在执行入口脚本时正确提供 `document.currentScript`，会导致子应用加载失败。更多适配原理请参阅 Utoo 官网博客[《当 Turbopack 遇上 qiankun：Utoopack 的微前端适配实践》](https://utoo.land/zh/docs/blog/utoopack-qiankun)。
 
 ## verifyCommit
 
